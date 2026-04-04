@@ -1,21 +1,73 @@
-// Placeholder auth functions to prevent module not found errors.
-// Replace with your Firebase or backend implementation as needed.
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithCredential,
+} from "firebase/auth";
 
-export async function register(email: string, password: string) {
-  if (!email || !password)
-    return Promise.reject(new Error("Email and password are required"));
-  console.log("Register called", { email, password });
-  return Promise.resolve({ user: { email } });
-}
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from "./firebaseConfig";
 
-export async function login(email: string, password: string) {
-  if (!email || !password)
-    return Promise.reject(new Error("Email and password are required"));
-  console.log("Login called", { email, password });
-  return Promise.resolve({ user: { email } });
-}
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
-export async function signInWithGoogle() {
-  console.log("Google sign-in called");
-  return Promise.resolve({ user: { provider: "google" } });
-}
+GoogleSignin.configure({
+  webClientId: "YOUR_WEB_CLIENT_ID",
+});
+
+export const register = async (email: string, password: string) => {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+
+    const user = userCredential.user;
+
+    await setDoc(doc(db, "users", user.uid), {
+      uid: user.uid,
+      email: user.email,
+      provider: "email",
+      createdAt: new Date(),
+    });
+
+    console.log("User saved to Firestore");
+  } catch (error: any) {
+    console.log(error.message);
+  }
+};
+
+export const login = async (email: string, password: string) => {
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    console.log("Logged in");
+  } catch (error: any) {
+    console.log(error.message);
+  }
+};
+
+export const signInWithGoogle = async () => {
+  try {
+    await GoogleSignin.hasPlayServices();
+
+    const userInfo = await GoogleSignin.signIn();
+
+    const credential = GoogleAuthProvider.credential(
+      userInfo.idToken
+    );
+
+    const userCredential = await signInWithCredential(auth, credential);
+    const user = userCredential.user;
+
+    await setDoc(doc(db, "users", user.uid), {
+      uid: user.uid,
+      email: user.email,
+      provider: "google",
+      createdAt: new Date(),
+    });
+
+    console.log("Google user saved");
+  } catch (error: any) {
+    console.log(error.message);
+  }
+};
